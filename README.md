@@ -3,15 +3,17 @@
 import os
 
 def run_cmd(cmd):
-    """Execute and display a shell command."""
+    """Run and show shell command output."""
     print(f"\n> {cmd}")
     os.system(cmd)
 
+def dir_exists(path):
+    """Check if a directory exists."""
+    return os.path.isdir(path)
+
 def list_releases(project):
-    """Return list of releases for the given project."""
-    # Extract release list using efs display command (simple parsing)
-    stream = os.popen(f"efs display release starburst --project {project}")
-    output = stream.read()
+    """List releases for a given project."""
+    output = os.popen(f"efs list release starburst {project}").read()
     releases = []
     for line in output.splitlines():
         parts = line.strip().split()
@@ -19,54 +21,100 @@ def list_releases(project):
             releases.append(parts[2])
     return releases
 
-def main():
+def create_release_flow():
+    """Create a new EFS release and upload files."""
+    print("\n=== EFS Create & Upload Tool ===")
+    mode = input("Enter environment (dev/prod): ").strip().lower()
+    if mode not in ["dev", "prod"]:
+        print("Invalid input. Must be 'dev' or 'prod'.")
+        return
+
+    metaproject = "starburst"
+    project = input("Enter project name (e.g., trinob): ").strip()
+    release = input("Enter release version (e.g., 42): ").strip()
+
+    dev_cell = "d-usw2850.chi.amrs.ml.com"
+    prod_cell = "d.uspa01.nyc.amrs.ml.com"
+    cell = dev_cell if mode == "dev" else prod_cell
+
+    base_path = f"/efs/{mode}/{metaproject}/{project}/{release}/install/common"
+
+    # Create project if not exists
+    if not dir_exists(f"/efs/{mode}/{metaproject}/{project}"):
+        run_cmd(f"efs create project {metaproject} {project} {cell}")
+    else:
+        print(f"[SKIP] Project already exists: {project}")
+
+    # Create release if not exists
+    if not dir_exists(f"/efs/{mode}/{metaproject}/{project}/{release}"):
+        run_cmd(f"efs create release {metaproject} {project} {release}")
+    else:
+        print(f"[SKIP] Release already exists: {release}")
+
+    # Create install directory if not exists
+    if not dir_exists(base_path):
+        run_cmd(f"efs create install {metaproject} {project} {release} common")
+    else:
+        print(f"[SKIP] Install path already exists: {base_path}")
+
+    # Upload files
+    print("\nEnter full file paths to upload (comma-separated):")
+    files = input("Files: ").strip().split(",")
+    for file in files:
+        file = file.strip()
+        if file:
+            run_cmd(f"cp {file} {base_path}")
+
+    # Finalize release
+    run_cmd(f"efs checkpoint release {metaproject} {project} {release}")
+    run_cmd(f"efs dist release {metaproject} {project} {release} --celltype {mode} --global")
+
+    # Summary
+    print("\n=== SUCCESS ===")
+    print(f"{mode.upper()} EFS setup completed.")
+    print(f"EFS Path: {base_path}")
+    print("\n--- Copy & Share Message ---")
+    print(f"{mode.upper()} EFS setup for {project} v{release} completed successfully.")
+    print(f"Files available at: {base_path}")
+
+def delete_release_and_project():
+    """Delete EFS release and then project."""
     print("\n=== EFS Release & Project Deletion Tool ===")
-
-    # Display existing projects
-    print("\n--- Existing Projects ---")
-    run_cmd("efs display project starburst")
-
-    # Ask for project name
+    run_cmd("efs list project starburst")
     project = input("\nEnter the project you want to delete (e.g., trinob): ").strip()
 
-    # Show all releases for this project
     releases = list_releases(project)
     if not releases:
-        print(f"\nNo releases found for project '{project}'.")
-        return
-
-    print(f"\nReleases found under project '{project}': {', '.join(releases)}")
-    release = input(f"Enter the release you want to delete (choose from above): ").strip()
-
-    if release not in releases:
-        print(f"\nRelease '{release}' not found in project '{project}'. Aborting.")
-        return
-
-    # Confirm with user
-    print(f"\n[WARNING] You are about to DELETE:")
-    print(f"  Project  : {project}")
-    print(f"  Release  : {release}")
-    print(f"  All files and setup under this release will be lost.")
-    confirm = input("Type DELETE to continue: ").strip()
-    if confirm != "DELETE":
-        print("Aborted by user.")
-        return
-
-    # Step 1: Purge release
-    run_cmd(f"efs purge release starburst {project} {release}")
-
-    # Step 2: Destroy release
-    run_cmd(f"efs destroy release starburst {project} {release}")
-
-    # Step 3: Check for remaining releases
-    remaining_releases = list_releases(project)
-    if remaining_releases:
-        print(f"\n[INFO] Project '{project}' still has other releases: {', '.join(remaining_releases)}")
-        print(f"Skipping project deletion.")
+        print(f"No releases found for project '{project}'. Proceeding to project delete...")
     else:
-        # Step 4: Destroy project
-        run_cmd(f"efs destroy project starburst {project}")
-        print(f"\n[SUCCESS] Project '{project}' deleted since no other releases exist.")
+        print(f"Releases found for project '{project}': {', '.join(releases)}")
+        release = input("Enter the release version to delete: ").strip()
+        confirm = input(f"\n[WARNING] This will DELETE release and project from EFS.\n"
+                        f"You're deleting project: {project}, release: {release}\n"
+                        f"Type 'DELETE' to confirm: ").strip()
+        if confirm == "DELETE":
+            run_cmd(f"efs purge release starburst {project} {release}")
+            run_cmd(f"efs destroy release starburst {project} {release}")
+        else:
+            print("Aborted.")
+            return
+
+    # Attempt to delete the project now
+    run_cmd(f"efs destroy project starburst {project}")
+    print("\n=== CLEANUP COMPLETE ===")
+
+def main():
+    """Main menu."""
+    print("\n========= EFS Automation =========")
+    print("1. Create & Upload Files to EFS")
+    print("2. Delete EFS Release and Project")
+    choice = input("Choose an option (1/2): ").strip()
+    if choice == "1":
+        create_release_flow()
+    elif choice == "2":
+        delete_release_and_project()
+    else:
+        print("Invalid choice.")
 
 if __name__ == "__main__":
     main()
