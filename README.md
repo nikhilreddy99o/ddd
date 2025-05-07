@@ -1,11 +1,17 @@
-In production, we're not allowed to delete or restart the pod related to audit logs until the release day. Our upcoming release is scheduled for May 9.
+Subject:Action Required: Materialized View Creation for Issue Resolution
 
-We already have the following setting enabled:
-starburst.access-control.audit.enabled=true
+Hi Vikas,
 
-When the log reaches its size limit, we encounter issues. My question is: if we increase the log size to 10,000, will it automatically delete or refresh the old logs?
+Good morning. As discussed, I’m from the Starburst team and currently working on your ticket.
 
-This issue occurs only in production. In lower environments, everything is working fine.
+We’ve tried both manual and automated methods, including updating roles and BIAC, but nothing has worked so far.
 
-Additionally, some tables and views were created in PROD using the ID NBK5YXB, but the service ID ZSBIDPC3 is unable to access the Materialized View (see screenshot below).
-ZSBIDPC3 is able to query the table but not the view.
+As a next step, could you please create a new **Materialized View** and test if the issue persists?
+Meanwhile, I’ve also escalated this to the Starburst support team and am actively working with them to investigate further.
+
+Please let me know once the view is created so we can proceed with validation.
+
+Best regards,
+Nikhil Karra
+Bank of America
+Enterprise Business Intelligence Platforms – StarBurst (Trino)
