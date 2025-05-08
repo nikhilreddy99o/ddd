@@ -1,31 +1,30 @@
-Subject: Aqua Scan Results – Prometheus and Grafana
+#!/bin/bash
 
-Hi Sergio,
+# Set the full path to your RPM file (DO NOT delete or modify this)
+RPM_FILE="StarburstODBC-32bit-2.2.0.1002.el8.i686.rpm"
 
-Please find below the Aqua scan results for the Prometheus and Grafana images:
+# Target directory where the .so file should go
+DEST_DIR="/efs/starburst/odbc_drivers/so"
 
-Prometheus:
-A total of 5 vulnerabilities were found.
+# Create destination directory if it doesn't exist
+mkdir -p "$DEST_DIR"
 
-| Vulnerability       | GIS Severity        | Aqua Severity | Resource Name    | Resource Version | Resource Type |
-| ------------------- | ------------------- | ------------- | ---------------- | ---------------- | ------------- |
-| CVE-2025-22870 (x2) | Priority 3 - medium | medium        | golang.org/x/net | 0.35.0           | go package    |
-| CVE-2023-42365      | Priority 4 - low    | medium        | busybox          | 1.36.1           | executable    |
-| CVE-2023-42364      | Priority 4 - low    | medium        | busybox          | 1.36.1           | executable    |
-| CVE-2023-42363      | Priority 4 - low    | medium        | busybox          | 1.36.1           | executable    |
+# Create temporary working directory
+TMP_DIR=$(mktemp -d)
 
-Grafana OSS 10:
-1 vulnerability found.
+# Go to the temp directory
+cd "$TMP_DIR" || exit 1
 
-| Vulnerability  | GIS Severity        | Aqua Severity | Resource Name             | Resource Version | Resource Type |
-| -------------- | ------------------- | ------------- | ------------------------- | ---------------- | ------------- |
-| CVE-2025-30153 | Priority 3 - medium | high          | github.com/getkin/openapi | 0.120.0          | go package    |
+# Extract only the .so file without touching other paths
+rpm2cpio "/full/path/to/$RPM_FILE" | \
+cpio -idmv './opt/starburst/starburstodbc/lib/32/StarburstODBC_sb32.so'
 
-Detailed scan reports are attached for your reference.
-Additionally, we have removed the old image from FROG.
+# Move only the .so file to your destination
+mv ./opt/starburst/starburstodbc/lib/32/StarburstODBC_sb32.so "$DEST_DIR/"
 
-Thanks, Chandra, for your support in each request.
+# Go back and clean the temp folder
+cd ~
+rm -rf "$TMP_DIR"
 
-@Paula: When you have time, could you please download the necessary plugins from Grafana? We are currently unable to do so due to GIS security restrictions. Once downloaded, we can enable them on our side. We’ll also let you know if any additional plugins are needed. Other teams across the bank are following the same approach, and Grafana support also confirmed this process.
-
-
+# Final message
+echo "✔️  StarburstODBC_sb32.so copied to $DEST_DIR"
