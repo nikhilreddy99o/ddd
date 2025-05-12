@@ -1,2 +1,23 @@
-GRANT SELECT ON CATALOG ami_workspace_iceberg TO USER nbk5fyxb;
-GRANT CREATE VIEW ON SCHEMA ami_sb_insights TO USER nbk5fyxb;
+{
+  "name": "pystarburst_full_access",
+  "description": "Full access role for PyStarburst usage",
+  "users": ["user1", "user2", "user3", "user4"],
+  "privileges": [
+    {
+      "catalog": ["*"],
+      "schema": ["*"],
+      "tables": ["*"],
+      "action": ["*"]
+    },
+    {
+      "category": "CATALOG_SESSION_PROPERTIES",
+      "properties": ["*"],
+      "action": ["SET"]
+    },
+    {
+      "category": "SYSTEM_SESSION_PROPERTIES",
+      "properties": ["*"],
+      "action": ["SET"]
+    }
+  ]
+}
