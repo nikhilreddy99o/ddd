@@ -1,4 +1,4 @@
-CREATE FUNCTION default.double_up(x integer)
+CREATE FUNCTION ami_workspace.test.double_up_test(x integer)
   RETURNS integer
   LANGUAGE PYTHON
   WITH (handler = 'twice')
