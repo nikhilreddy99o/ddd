@@ -1,23 +1,5 @@
-{
-  "name": "pystarburst_full_access",
-  "description": "Full access role for PyStarburst usage",
-  "users": ["user1", "user2", "user3", "user4"],
-  "privileges": [
-    {
-      "catalog": ["*"],
-      "schema": ["*"],
-      "tables": ["*"],
-      "action": ["*"]
-    },
-    {
-      "category": "CATALOG_SESSION_PROPERTIES",
-      "properties": ["*"],
-      "action": ["SET"]
-    },
-    {
-      "category": "SYSTEM_SESSION_PROPERTIES",
-      "properties": ["*"],
-      "action": ["SET"]
-    }
-  ]
-}
+Hi Greg,
+
+Could you please cancel today’s meeting? I have another meeting scheduled at the same time regarding Grafana and RAI metadata tasks.
+
+@Rimal_Uttam @Goud_dasappla_Bindu — If you have any updates, please share them in Mattermost every Friday, covering what has been completed and plans for the next week. This will also be helpful during the Monday standup.
