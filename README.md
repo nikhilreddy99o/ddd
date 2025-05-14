@@ -1,76 +1,116 @@
-import os
-import shutil
-import requests
-from datetime import datetime, timedelta
-import ctypes
+import streamlit as st
+import io
+import sys
+import traceback
+import pandas as pd
+from contextlib import redirect_stdout, redirect_stderr
+from pystarburst import Session
+from trino.auth import BasicAuthentication
 
-# === CONFIGURATION ===
-SHARE_PATH = "G:\\"
-INIT_GB = 1  # Alert when usage crosses 1 GB
-DELETE_AFTER_DAYS = 30
-NOTIFY_BEFORE_DAYS = 2
-MATTERMOST_WEBHOOK = "https:/hooks/your_webhook_here"
-ARCHIVE_BEFORE_DELETE = True
-ARCHIVE_PATH = "G:\\archive\\"
-DRY_RUN = False
+# Streamlit page configuration
+st.title("Python Terminal with Starburst Connection")
 
-def get_usage(path):
-    total, used, free = shutil.disk_usage(path)
-    return total / (1024 ** 3), used / (1024 ** 3), free / (1024 ** 3)
+# Starburst connection details (from screenshot)
+STARBURST_HOST = "gbt-edp-starburstdev..com"
+STARBURST_PORT = 443
+STARBURST_USER = ""
+STARBURST_CATALOG = "hive"
+STARBURST_SCHEMA = "default"
 
-def send_mattermost_alert(message, mention_all=False):
-    mention = " @all" if mention_all else ""
-    payload = {"text": f"{message}{mention}"}
+# Password input (since UI RBAC is assumed to restrict access)
+password = st.text_input("Enter Starburst password:", type="password")
+
+# Initialize Starburst session
+@st.cache_resource
+def get_starburst_session(_password):
+    if not _password:
+        return None
     try:
-        response = requests.post(MATTERMOST_WEBHOOK, json=payload, verify=False)
-        if response.status_code != 200:
-            print("Mattermost alert failed.")
+        session = Session.builder.configs({
+            "host": STARBURST_HOST,
+            "port": STARBURST_PORT,
+            "http_scheme": "https",
+            "auth": BasicAuthentication(STARBURST_USER, _password),
+            "catalog": STARBURST_CATALOG,
+            "schema": STARBURST_SCHEMA,
+            "verify": False  # Not recommended for production
+        }).create()
+        return session
     except Exception as e:
-        print(f"Error sending Mattermost alert: {e}")
+        st.error(f"Failed to connect to Starburst: {str(e)}")
+        return None
 
-def popup_message(message):
-    ctypes.windll.user32.MessageBoxW(0, message, "Storage Alert", 1)
+# Text area for user code
+user_code = st.text_area(
+    "Enter Python code (use 'session' for Starburst connection):",
+    height=300,
+    placeholder="""e.g., 
+df = session.sql('SELECT * FROM login_event_log LIMIT 5').collect()
+print(df)
+"""
+)
 
-def archive_file(file_path):
-    try:
-        if not os.path.exists(ARCHIVE_PATH):
-            os.makedirs(ARCHIVE_PATH)
-        shutil.move(file_path, ARCHIVE_PATH)
-        send_mattermost_alert(f"📦 Archived: `{file_path}`")
-    except Exception as e:
-        send_mattermost_alert(f"❌ Failed to archive `{file_path}`: {e}")
+# Run button
+if st.button("Run"):
+    if not user_code.strip():
+        st.warning("Please enter some code to run.")
+    elif not password:
+        st.warning("Please enter your Starburst password.")
+    else:
+        # Capture output and errors
+        output = io.StringIO()
+        error_output = io.StringIO()
+        
+        # Get Starburst session
+        session = get_starburst_session(password)
+        if not session:
+            st.error("Cannot execute code due to connection failure.")
+        else:
+            try:
+                # Execute code in a standard Python environment
+                globals_dict = {
+                    "session": session,
+                    "pd": pd,
+                    "__builtins__": __builtins__  # Full Python terminal experience
+                }
+                
+                with redirect_stdout(output), redirect_stderr(error_output):
+                    exec(user_code, globals_dict)
+                
+                # Display output
+                result = output.getvalue()
+                if result:
+                    st.success("Output:")
+                    st.code(result, language="text")
+                
+                # Display DataFrame if created
+                if "df" in globals_dict and isinstance(globals_dict["df"], pd.DataFrame):
+                    st.subheader("DataFrame Result:")
+                    st.dataframe(globals_dict["df"])
+                
+                if not result and "df" not in globals_dict:
+                    st.info("Code executed successfully, but no output was produced.")
+            
+            except Exception as e:
+                # Display detailed error with traceback
+                error_trace = error_output.getvalue() + "\n" + traceback.format_exc()
+                st.error("Error:")
+                st.code(error_trace, language="text")
+            
+            finally:
+                output.close()
+                error_output.close()
+                session.close()
 
-def delete_old_files():
-    cutoff_date = datetime.now() - timedelta(days=DELETE_AFTER_DAYS)
-    notify_date = datetime.now() - timedelta(days=NOTIFY_BEFORE_DAYS)
-    files_deleted = 0
-
-    for root, _, files in os.walk(SHARE_PATH):
-        for file in files:
-            file_path = os.path.join(root, file)
-            modified_time = datetime.fromtimestamp(os.path.getmtime(file_path))
-
-            if modified_time < cutoff_date:
-                if ARCHIVE_BEFORE_DELETE:
-                    archive_file(file_path)
-                if not DRY_RUN:
-                    try:
-                        os.remove(file_path)
-                        send_mattermost_alert(f"🗑️ Deleted: `{file_path}`")
-                        files_deleted += 1
-                    except Exception as e:
-                        send_mattermost_alert(f"❌ Error deleting `{file_path}`: {e}")
-            elif modified_time < notify_date:
-                send_mattermost_alert(f"⚠️ `{file_path}` will be deleted in {NOTIFY_BEFORE_DAYS} days.")
-
-    send_mattermost_alert(f"✅ Cleanup completed. Total files deleted: **{files_deleted}**.", mention_all=True)
-
-# === MAIN EXECUTION ===
-
-total, used, free = get_usage(SHARE_PATH)
-if used >= INIT_GB:
-    alert_message = f"⚠️ Share usage alert! Used: **{used:.2f} GB**, Limit: **{INIT_GB} GB**"
-    send_mattermost_alert(alert_message, mention_all=True)
-    popup_message(alert_message)
-
-delete_old_files()
+# UI instructions and warnings
+st.markdown("""
+### Instructions:
+- Enter your Starburst password to connect.
+- Use `session` for Starburst SQL queries (e.g., `session.sql('SELECT ...').collect()`).
+- This behaves like a Python terminal: imports, loops, functions, etc., are allowed.
+- Example:
+  ```python
+  df = session.sql('SELECT DATE(created_at) AS date, COUNT(*) AS query_count FROM login_event_log WHERE created_at >= TIMESTAMP \\'2025-03-01\\' GROUP BY DATE(created_at)').collect()
+  avg_queries = df['query_count'].mean()
+  print(f'Average queries: {avg_queries}')
+  print(df)
