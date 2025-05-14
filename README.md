@@ -1,7 +1,4 @@
-Hi,
+Hi Bindu,
 
-Is there a way we can monitor the drive size and trigger an alert if it crosses 1GB? This would help avoid situations where someone stores a file and forgets about it.
+This is an ARM request, but we recently became aware of a cost-related issue. Please wait for Rajesh’s approval, and then you can proceed to raise the ARM request.
 
-Additionally, can we set permissions to automatically delete files after a certain date and configure alert limits accordingly?
-
-Thank you.
