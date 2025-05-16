@@ -1,12 +1,7 @@
-Hi Victoria,
+Hi Zeb,
 
-We completed the CRQ on May 9, and our release key is RM-EBTSBS17-DPSEBITADE-179, with CRQ number CRQ000014447532.
+We were onboarded on May 9, but Victoria was unable to see the CRQ folder in Octane and couldn’t view the results. I have since confirmed this with Victoria and demonstrated the process. She has confirmed that everything looks fine from our end now.
 
-We have also been using Octane. Could you please check if there’s any reason why it’s not reflecting correctly from our side?
+Regards,
+Nikhil Karra
 
-JIRA ticket for reference:
-
-DPSSB-2364
-
-Octane ID: US104012
-Description: DPSSB-2364: Update Digi-certs to Dev, UAT, PROD & DR
