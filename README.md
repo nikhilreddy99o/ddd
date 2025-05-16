@@ -1,9 +1,8 @@
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: grafana
-  namespace: cp-5670375  # Ensure correct namespace
+  namespace: cp-5670375
 spec:
   replicas: 1
   selector:
@@ -17,19 +16,17 @@ spec:
       initContainers:
         - name: download-trino-plugin
           image: curlimages/curl:latest
-          command:
-            - sh
-            - -c
+          command: ["/bin/sh", "-c"]
+          args:
             - |
               echo "Starting Trino plugin download..." && \
               mkdir -p /plugins/trino && \
-              echo "Downloading plugin from SharePoint..." && \
-              curl -L -o /plugins/trino/trino-plugin.zip "?...&download=1" && \
+              curl -o /plugins/trino/trino-plugin.zip "" && \
               echo "Download completed. Extracting plugin..." && \
-              unzip -o /plugins/trino/trino-plugin.zip -d /plugins/trino/ && \
+              unzip /plugins/trino/trino-plugin.zip -d /plugins/trino/ && \
               echo "Extraction complete. Verifying contents..." && \
-              ls -l /plugins/trino && \
-              echo "Trino plugin setup completed successfully."
+              ls -la /plugins/trino && \
+              echo "Plugin setup completed successfully."
           volumeMounts:
             - name: trino-plugin-volume
               mountPath: /plugins/trino
@@ -43,10 +40,10 @@ spec:
             - name: GF_PATHS_CONFIG
               value: /etc/grafana/grafana.ini
             - name: GF_INSTALL_PLUGINS
-              value: trino-datasource
+              value: /plugins/trino
           volumeMounts:
             - name: trino-plugin-volume
-              mountPath: /var/lib/grafana/plugins/trino-datasource
+              mountPath: /var/lib/grafana/plugins/trino
             - name: grafana-config
               mountPath: /etc/grafana/grafana.ini
               subPath: grafana.ini
@@ -56,5 +53,7 @@ spec:
           emptyDir: {}
         - name: grafana-config
           configMap:
-            name: grafana-config
+            name: grafana-smtp-config
 
+      imagePullSecrets:
+        - name: ebit-nonprod-registry
